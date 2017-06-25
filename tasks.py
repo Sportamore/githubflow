@@ -19,7 +19,7 @@ github = Github(config.GITHUB_TOKEN)
 
 @app.task()
 def release_from_pr(pull_request):
-    logger.info("Creating release from PR #%S", pull_request["number"])
+    logger.info("Creating release from PR #%s", pull_request["number"])
 
     if not re.match(config.RELEASE_PATTERN, pull_request["title"]):
         logger.error("Invalid PR title: %s", pull_request["title"])
@@ -43,7 +43,14 @@ def release_from_pr(pull_request):
 def notify_slack(release, repo):
     logger.info("Notifying slack about relase: %s", release["tag_name"])
 
-    body = "New release, repo: {}, tag: {}".format(
-        repo["full_name"]. release["tag_name"])
+    body = "New release in <{}|{}>: <{}|{}>.".format(
+        repo["html_url"], repo["full_name"],
+        release["html_url"], release["tag_name"])
 
-    post(config.SLACK_WEBHOOK, json={"text": body})
+    res = post(config.SLACK_WEBHOOK, json={"text": body})
+    logger.debug("Slack response: %s", res.status_code)
+
+    if res.status_code != 200:
+        logger.error("Slack notification failed with code: %s, message: %s",
+                     res.status_code, res.content)
+        return False
