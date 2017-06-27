@@ -61,7 +61,7 @@ def handle_webhook():
         validate_signature()
 
     except Exception:
-        logger.error("Refusing request, bad digest")
+        logger.exception("Refusing request, bad digest")
         abort(403)
 
     try:
