@@ -21,6 +21,7 @@ class CeleryConfig(object):
 # Application
 TARGET_BRANCH = "master"
 RELEASE_PATTERN = r"^\d{8}\.\d+$"
+APPROVE_RELEASES = False
 
 # Secrets
 WEBHOOK_SECRET = env.get("GITHUB_WEBHOOK_SECRET").encode('utf-8')

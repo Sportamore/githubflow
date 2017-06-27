@@ -29,11 +29,11 @@ def get_pr_repo(pull_request):
     return github.repos[owner][base["name"]]
 
 
-def set_commit_status(repo, commit, status, description)
+def set_commit_status(repo, commit, status, description):
     logger.info("Settings status of %s to %s", commit, status)
 
     status_check = {
-        "context": "GitHubFlow"
+        "context": "GitHubFlow",
         "status": status,
         "description": description
     }
@@ -42,7 +42,8 @@ def set_commit_status(repo, commit, status, description)
     if status != 201:
         raise Exception(
             "Creation failed, request: {!r}, response: {!r}, code: {}".format(
-                release, response, status))
+                status_check, response, status))
+
 
 @app.task()
 def check_pull_request(pull_request):
@@ -62,6 +63,36 @@ def check_pull_request(pull_request):
 
     else:
         set_commit_status(repo, commit, "success", "Valid release")
+        if config.APPROVE_RELEASES:
+            approve_pr.delay(pull_request)
+
+
+@app.task()
+def approve_pr(pull_request):
+    logger.info("Approving PR #%s", pull_request["number"])
+
+    repo = get_pr_repo(pull_request)
+    pr_obj = repo.pulls[pull_request["number"]]
+
+    status, response = pr_obj.reviews.get()
+    current_user_id = github.user.get()[1]["id"]
+
+    logger.debig("Fetched %s reviews")
+    for review in response:
+        if review["user"]["id"] == current_user_id:
+            logger.warning("PR already reviews by GitHubFlow")
+            return False
+
+    else:
+        review = {
+            "body": "Valid release",
+            "event": "APPROVE"
+        }
+        status, response = pr_obj.reviews.post(data=review)
+        if status not in (200, 201):
+            raise Exception(
+                "Creation failed, request: {!r}, response: {!r}"
+                ", code: {}".format(review, response, status))
 
 
 @app.task()
