@@ -6,7 +6,7 @@ import hmac
 from flask import Flask, request, abort
 
 import config
-from tasks import release_from_pr, notify_slack
+from tasks import release_from_pr, notify_slack, check_pull_request
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -34,8 +34,8 @@ def pr_event(payload):
         return False
 
     if payload["action"] in ("opened", "reopened", "edited"):
-        # TODO: Add status checks for content
-        pass
+        logger.info("PR created/updated, dispatching status check")
+        check_pull_request.delay(pull_request)
 
     elif payload["action"] == "closed":
         if pull_request["merged"]:
