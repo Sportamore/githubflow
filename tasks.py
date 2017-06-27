@@ -29,20 +29,25 @@ def get_pr_repo(pull_request):
     return github.repos[owner][base["name"]]
 
 
+def create_or_fail(partial, request):
+    status, response = partial.post(body=request)
+    if status not in (200, 201):
+        raise Exception(
+            "Creation failed, request: {!r}, "
+            "response: {!r}, code: {}".format(
+                request, response, status))
+
+
 def set_commit_status(repo, commit, status, description):
     logger.info("Settings status of %s to %s", commit, status)
-
-    status_check = {
-        "context": "GitHubFlow",
-        "status": status,
-        "description": description
-    }
-
-    status, response = repo.statuses[commit].post(body=status_check)
-    if status != 201:
-        raise Exception(
-            "Creation failed, request: {!r}, response: {!r}, code: {}".format(
-                status_check, response, status))
+    create_or_fail(
+        repo.statuses[commit],
+        {
+            "context": "GitHubFlow",
+            "status": status,
+            "description": description
+        }
+    )
 
 
 @app.task()
@@ -84,15 +89,13 @@ def approve_pr(pull_request):
             return False
 
     else:
-        review = {
-            "body": "Valid release",
-            "event": "APPROVE"
-        }
-        status, response = pr_obj.reviews.post(data=review)
-        if status not in (200, 201):
-            raise Exception(
-                "Creation failed, request: {!r}, response: {!r}"
-                ", code: {}".format(review, response, status))
+        create_or_fail(
+            pr_obj.reviews,
+            {
+                "body": "Valid release",
+                "event": "APPROVE"
+            }
+        )
 
 
 @app.task()
@@ -102,19 +105,16 @@ def release_from_pr(pull_request):
     # TODO: Add more last-minute validation (or check statuses?)
     assert_valid_title(pull_request["title"])
 
-    release = {
-        "tag_name": pull_request["title"],
-        "target_commitish": pull_request["merge_commit_sha"],
-        "name": pull_request["title"],
-        "body": pull_request["body"]
-    }
-
     repo = get_pr_repo(pull_request)
-    status, response = repo.releases.post(body=release)
-    if status != 201:
-        raise Exception(
-            "Creation failed, request: {!r}, response: {!r}, code: {}".format(
-                release, response, status))
+    create_or_fail(
+        repo.releases,
+        {
+            "tag_name": pull_request["title"],
+            "target_commitish": pull_request["merge_commit_sha"],
+            "name": pull_request["title"],
+            "body": pull_request["body"]
+        }
+    )
 
 
 @app.task()
