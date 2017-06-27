@@ -30,10 +30,11 @@ def pr_event(payload):
                  pull_request["number"], payload["action"])
 
     if pull_request["base"]["ref"] != config.TARGET_BRANCH:
-        logger.warning("Unmonitored branch")
+        logger.warning("Unmonitored branch: %s", pull_request["base"]["ref"])
+        return False
 
-    if payload["action"] in ("opened", "reopened", "synchronized"):
-        # TODO:: Add status checks for content
+    if payload["action"] in ("opened", "reopened", "edited"):
+        # TODO: Add status checks for content
         pass
 
     elif payload["action"] == "closed":
