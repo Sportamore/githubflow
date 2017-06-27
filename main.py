@@ -18,9 +18,9 @@ app.config.from_object(config.FlaskConfig)
 def validate_signature():
     logger.debug("Validating request digest")
 
-    supplied_hmac = request.headers["X-Hub-Signature"]
-    real_hmac = hmac.new(config.WEBHOOK_SECRET, request.data)
-    if not hmac.compare_digest(supplied_hmac, real_hmac.hexdigest()):
+    mode, digest = request.headers["X-Hub-Signature"].split('=')
+    real_hmac = hmac.new(config.WEBHOOK_SECRET, request.data, mode)
+    if not hmac.compare_digest(digest, real_hmac.hexdigest()):
         raise ValueError("Invalid HMAC")
 
 
