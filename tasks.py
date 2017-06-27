@@ -2,9 +2,9 @@
 import logging
 import re
 
-from Celery import Celery
+from celery import Celery
 from github import Github
-from Request import post
+from requests import post
 
 import config
 
@@ -25,7 +25,7 @@ def release_from_pr(pull_request):
         logger.error("Invalid PR title: %s", pull_request["title"])
         return False
 
-    base = pull_request[".base"]["repo"]
+    base = pull_request["base"]["repo"]
     owner = base["owner"]["login"]
     repo = github.get_user(owner).get_repo(base["name"])
 
@@ -33,7 +33,7 @@ def release_from_pr(pull_request):
         tag=pull_request["title"],
         tag_message="Merged Pull Request #{}".format(pull_request["number"]),
         release_name=pull_request["title"],
-        release_message=pull_request["title"],
+        release_message=pull_request["body"],
         object=pull_request["merge_commit_sha"],
         type="commit"
     )
