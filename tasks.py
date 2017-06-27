@@ -3,8 +3,8 @@ import logging
 import re
 
 from celery import Celery
-from github import Github
 from requests import post
+from agithub.GitHub import GitHub
 
 import config
 
@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 app = Celery(__name__)
 app.config_from_object(config.CeleryConfig)
 
-github = Github(config.GITHUB_TOKEN)
+github = GitHub(token=config.GITHUB_TOKEN)
 
 
 @app.task()
@@ -27,16 +27,19 @@ def release_from_pr(pull_request):
 
     base = pull_request["base"]["repo"]
     owner = base["owner"]["login"]
-    repo = github.get_user(owner).get_repo(base["name"])
 
-    repo.create_git_tag_and_release(
-        tag=pull_request["title"],
-        tag_message="Merged Pull Request #{}".format(pull_request["number"]),
-        release_name=pull_request["title"],
-        release_message=pull_request["body"],
-        object=pull_request["merge_commit_sha"],
-        type="commit"
-    )
+    release = {
+        "tag_name": pull_request["title"],
+        "target_commitish": pull_request["merge_commit_sha"],
+        "name": pull_request["title"],
+        "body": pull_request["body"]
+    }
+
+    repo = github.repos[owner][base["name"]]
+    status, response = repo.releases.post(body=release)
+    if status != 201:
+        logger.error("Release was not created, response: %r", response)
+        return False
 
 
 @app.task()
