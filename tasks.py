@@ -17,16 +17,59 @@ app.config_from_object(config.CeleryConfig)
 github = GitHub(token=config.GITHUB_TOKEN)
 
 
+def assert_valid_title(title):
+    if not re.match(config.RELEASE_PATTERN, title):
+        raise ValueError("! %r =~ %r", title, config.RELEASE_PATTERN)
+
+
+def get_pr_repo(pull_request):
+    """ Create an agithub repo partial from a pull_request event """
+    base = pull_request["base"]["repo"]
+    owner = base["owner"]["login"]
+    return github.repos[owner][base["name"]]
+
+
+def set_commit_status(repo, commit, status, description)
+    logger.info("Settings status of %s to %s", commit, status)
+
+    status_check = {
+        "context": "GitHubFlow"
+        "status": status,
+        "description": description
+    }
+
+    status, response = repo.statuses[commit].post(body=status_check)
+    if status != 201:
+        raise Exception(
+            "Creation failed, request: {!r}, response: {!r}, code: {}".format(
+                release, response, status))
+
+@app.task()
+def check_pull_request(pull_request):
+    logger.info("Init status checks for PR #%s", pull_request["number"])
+    repo = get_pr_repo(pull_request)
+    commit = pull_request["head"]["sha"]
+
+    logger.debug("Settings status to pending")
+    set_commit_status(repo, commit, "pending", "Parsing pull request")
+
+    try:
+        # TODO: Validate body?
+        assert_valid_title(pull_request["title"])
+
+    except ValueError:
+        set_commit_status(repo, commit, "failure", "Invalid title")
+
+    else:
+        set_commit_status(repo, commit, "success", "Valid release")
+
+
 @app.task()
 def release_from_pr(pull_request):
     logger.info("Creating release from PR #%s", pull_request["number"])
 
-    if not re.match(config.RELEASE_PATTERN, pull_request["title"]):
-        logger.error("Invalid PR title: %s", pull_request["title"])
-        return False
-
-    base = pull_request["base"]["repo"]
-    owner = base["owner"]["login"]
+    # TODO: Add more last-minute validation (or check statuses?)
+    assert_valid_title(pull_request["title"])
 
     release = {
         "tag_name": pull_request["title"],
@@ -35,11 +78,12 @@ def release_from_pr(pull_request):
         "body": pull_request["body"]
     }
 
-    repo = github.repos[owner][base["name"]]
+    repo = get_pr_repo(pull_request)
     status, response = repo.releases.post(body=release)
     if status != 201:
-        logger.error("Release was not created, response: %r", response)
-        return False
+        raise Exception(
+            "Creation failed, request: {!r}, response: {!r}, code: {}".format(
+                release, response, status))
 
 
 @app.task()
@@ -54,6 +98,6 @@ def notify_slack(release, repo):
     logger.debug("Slack response: %s", res.status_code)
 
     if res.status_code != 200:
-        logger.error("Slack notification failed with code: %s, message: %s",
-                     res.status_code, res.content)
-        return False
+        raise Exception(
+            "Slack notification failed with code: {}, message: {}".format(
+                res.status_code, res.content))
