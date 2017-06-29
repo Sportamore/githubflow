@@ -21,7 +21,6 @@ services:
 
             GITHUB_WEBHOOK_SECRET: ""
             GITHUB_TOKEN: ""
-            SLACK_WEBHOOK: ""
 
     wsgi-app:
         extends:

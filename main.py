@@ -6,7 +6,7 @@ import hmac
 from flask import Flask, request, abort
 
 import config
-from tasks import release_from_pr, notify_slack, check_pull_request
+from tasks import release_from_pr, check_pull_request
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -49,13 +49,6 @@ def pr_event(payload):
         logger.warning("Unhandled PR action: %s", payload["action"])
 
 
-def release_published(release, repo):
-    logger.debug("New release: %s", release["tag_name"])
-
-    if config.SLACK_WEBHOOK:
-        notify_slack.delay(release, repo)
-
-
 @app.route('/', methods=['POST'])
 def handle_webhook():
     try:
@@ -77,9 +70,6 @@ def handle_webhook():
     logger.debug("Handling delivery: %s", delivery)
     if event == "pull_request":
         pr_event(payload)
-
-    elif event == "release":
-        release_published(payload["release"], payload["repository"])
 
     else:
         logger.warning("Unhandled event: %s(%s)", event, payload.get("action"))

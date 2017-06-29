@@ -1,6 +1,5 @@
 flask>=0.12
 uwsgi==2.0.15
-requests>=2.18
 redis>=2.10.5
 celery>=4.0,<4.1
 agithub>=2.1

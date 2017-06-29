@@ -3,7 +3,6 @@ import logging
 import re
 
 from celery import Celery
-from requests import post
 from agithub.GitHub import GitHub
 
 import config
@@ -129,20 +128,3 @@ def release_from_pr(pull_request):
             "body": pull_request["body"]
         }
     )
-
-
-@app.task()
-def notify_slack(release, repo):
-    logger.info("Notifying slack about relase: %s", release["tag_name"])
-
-    body = "New release in <{}|{}>: <{}|{}>.".format(
-        repo["html_url"], repo["full_name"],
-        release["html_url"], release["tag_name"])
-
-    res = post(config.SLACK_WEBHOOK, json={"text": body})
-    logger.debug("Slack response: %s", res.status_code)
-
-    if res.status_code != 200:
-        raise Exception(
-            "Slack notification failed with code: {}, message: {}".format(
-                res.status_code, res.content))
