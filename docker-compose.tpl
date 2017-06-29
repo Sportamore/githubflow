@@ -1,15 +1,6 @@
 version: "2"
 
 services:
-    proxy:
-        image: carlskeide/nginx-revproxy-django
-
-        ports:
-            - "8080:80"
-
-        depends_on:
-            - wsgi-app
-
     app:
         build: .
 
