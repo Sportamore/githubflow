@@ -17,9 +17,18 @@ app.config_from_object(config.CeleryConfig)
 github = GitHub(token=config.GITHUB_TOKEN)
 
 
-def assert_valid_title(title):
-    if not re.match(config.RELEASE_PATTERN, title):
-        raise ValueError("! %r =~ %r", title, config.RELEASE_PATTERN)
+class ValidationError(Exception):
+    pass
+
+
+def assert_valid_title(pull_request):
+    if not re.match(config.RELEASE_PATTERN, pull_request["title"]):
+        raise ValidationError("Invalid release title")
+
+
+def assert_valid_body(pull_request):
+    if not len(pull_request["body"]):
+        raise ValidationError("Missing description")
 
 
 def get_pr_repo(pull_request):
@@ -60,11 +69,16 @@ def check_pull_request(pull_request):
     set_commit_status(repo, commit, "pending", "Parsing pull request")
 
     try:
-        # TODO: Validate body?
-        assert_valid_title(pull_request["title"])
+        assert_valid_title(pull_request)
+        assert_valid_body(pull_request)
 
-    except ValueError:
-        set_commit_status(repo, commit, "failure", "Invalid title")
+    except ValidationError as e:
+        logger.exception("Validation failed")
+        set_commit_status(repo, commit, "failure", e.message)
+
+    except Exception:
+        logger.exception("Validation error")
+        set_commit_status(repo, commit, "error", "Validation error")
 
     else:
         set_commit_status(repo, commit, "success", "Valid release")
@@ -103,7 +117,7 @@ def release_from_pr(pull_request):
     logger.info("Creating release from PR #%s", pull_request["number"])
 
     # TODO: Add more last-minute validation (or check statuses?)
-    assert_valid_title(pull_request["title"])
+    assert_valid_title(pull_request)
 
     repo = get_pr_repo(pull_request)
     create_or_fail(
