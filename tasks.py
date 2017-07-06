@@ -52,7 +52,7 @@ def set_commit_status(repo, commit, status, description):
         repo.statuses[commit],
         {
             "context": "GitHubFlow",
-            "status": status,
+            "state": status,
             "description": description
         }
     )
