@@ -1,6 +1,7 @@
 # coding=utf-8
 import logging
 import re
+import time
 
 from celery import Celery
 from agithub.GitHub import GitHub
@@ -37,6 +38,28 @@ def get_pr_repo(pull_request):
     return github.repos[owner][base["name"]]
 
 
+def get_pr_merge_commit(pull_request):
+    logger.info("Retrieving merge commit for PR #%s", pull_request["number"])
+
+    repo = get_pr_repo(pull_request)
+    pr_obj = repo.pulls[pull_request["number"]]
+
+    for retry in range(config.PR_MERGE_COMMIT_RETRIES):
+        status, response = pr_obj.get()
+        commit = response.get("merge_commit_sha")
+
+        if commit:
+            logger.info("Fetched merge commit: %s", commit)
+            return commit
+
+        else:
+            logger.debug("Waiting before retrying.")
+            time.sleep(config.PR_MERGE_COMMIT_DELAY)
+
+    else:
+        raise Exception("Retrieving merge commit failed")
+
+
 def create_or_fail(partial, request):
     status, response = partial.post(body=request)
     if status not in (200, 201):
@@ -66,11 +89,11 @@ def check_pull_request(pull_request):
     # Not always avaiable immediately after a PR is opened
     commit = pull_request.get("merge_commit_sha")
     if not commit:
-        logger.warning("Merge commit not available.")
-        return False
+        logger.warning("No Merge commit in event")
+        commit = get_pr_merge_commit(pull_request)
 
-    logger.debug("Settings status to pending")
-    set_commit_status(repo, commit, "pending", "Parsing pull request")
+    # logger.debug("Settings status to pending")
+    # set_commit_status(repo, commit, "pending", "Parsing pull request")
 
     try:
         assert_valid_title(pull_request)
@@ -85,6 +108,7 @@ def check_pull_request(pull_request):
         set_commit_status(repo, commit, "error", "Validation error")
 
     else:
+        logger.info("All status checks passed")
         set_commit_status(repo, commit, "success", "Valid release")
         if config.APPROVE_RELEASES:
             approve_pr.delay(pull_request)

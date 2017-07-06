@@ -22,6 +22,8 @@ class CeleryConfig(object):
 TARGET_BRANCH = "master"
 RELEASE_PATTERN = r"^\d{8}\.\d+$"
 APPROVE_RELEASES = False
+PR_MERGE_COMMIT_RETRIES = 3
+PR_MERGE_COMMIT_DELAY = 3
 
 # Secrets
 WEBHOOK_SECRET = env.get("GITHUB_WEBHOOK_SECRET").encode('utf-8')
