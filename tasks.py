@@ -62,7 +62,12 @@ def set_commit_status(repo, commit, status, description):
 def check_pull_request(pull_request):
     logger.info("Init status checks for PR #%s", pull_request["number"])
     repo = get_pr_repo(pull_request)
-    commit = pull_request["head"]["sha"]
+
+    # Not always avaiable immediately after a PR is opened
+    commit = pull_request.get("merge_commit_sha")
+    if not commit:
+        logger.warning("Merge commit not available.")
+        return False
 
     logger.debug("Settings status to pending")
     set_commit_status(repo, commit, "pending", "Parsing pull request")
