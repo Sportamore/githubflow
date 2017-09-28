@@ -41,13 +41,11 @@ def get_pr_repo(pull_request):
 def get_pr_merge_commit(pull_request):
     logger.info("Retrieving merge commit for PR #%s", pull_request["number"])
 
-    repo = get_pr_repo(pull_request)
-    pr_obj = repo.pulls[pull_request["number"]]
-
     for retry in range(config.PR_MERGE_COMMIT_RETRIES):
-        status, response = pr_obj.get()
-        commit = response.get("merge_commit_sha")
+        repo = get_pr_repo(pull_request)
+        status, response = repo.pulls[pull_request["number"]].get()
 
+        commit = response.get("merge_commit_sha")
         if commit:
             logger.info("Fetched merge commit: %s", commit)
             return commit
@@ -124,13 +122,15 @@ def approve_pr(pull_request):
     status, response = pr_obj.reviews.get()
     current_user_id = github.user.get()[1]["id"]
 
-    logger.debig("Fetched %s reviews")
+    logger.debug("Fetched %s reviews")
     for review in response:
         if review["user"]["id"] == current_user_id:
             logger.warning("PR already reviews by GitHubFlow")
             return False
 
     else:
+        repo = get_pr_repo(pull_request)
+        pr_obj = repo.pulls[pull_request["number"]]
         create_or_fail(
             pr_obj.reviews,
             {
