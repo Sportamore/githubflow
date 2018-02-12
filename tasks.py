@@ -108,12 +108,11 @@ def check_pull_request(pull_request):
     else:
         logger.info("All status checks passed")
         set_commit_status(repo, commit, "success", "Valid release")
-        if config.APPROVE_RELEASES:
-            approve_pr.delay(pull_request)
+        review_pr.delay(pull_request)
 
 
 @app.task()
-def approve_pr(pull_request):
+def review_pr(pull_request):
     logger.info("Approving PR #%s", pull_request["number"])
 
     repo = get_pr_repo(pull_request)
@@ -135,7 +134,7 @@ def approve_pr(pull_request):
             pr_obj.reviews,
             {
                 "body": "Valid release",
-                "event": "APPROVE"
+                "event": "APPROVE" if config.APPROVE_RELEASES else "COMMENT"
             }
         )
 
