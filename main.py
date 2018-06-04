@@ -33,7 +33,7 @@ def pr_event(payload):
         logger.warning("Unmonitored branch: %s", pull_request["base"]["ref"])
         return False
 
-    if payload["action"] in ("opened", "reopened", "edited"):
+    if payload["action"] in ("opened", "reopened", "edited", "synchronize"):
         logger.info("PR created/updated, dispatching status check")
         check_pull_request.delay(pull_request)
 
@@ -46,7 +46,7 @@ def pr_event(payload):
             logger.warning("PR closed")
 
     else:
-        logger.warning("Unhandled PR action: %s", payload["action"])
+        logger.info("Unhandled PR action: %s", payload["action"])
 
 
 @app.route('/', methods=['POST'])
