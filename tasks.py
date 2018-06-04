@@ -102,7 +102,8 @@ def fail_pr(pull_request, reason):
         pr_obj.reviews,
         {
             "body": reason,
-            "event": "REQUEST_CHANGES"
+            "event": ("REQUEST_CHANGES" if config.APPROVE_RELEASES
+                      else "COMMENT")
         }
     )
 
@@ -123,7 +124,7 @@ def approve_pr(pull_request):
         if (review["user"]["id"] == current_user_id and
                 review["state"] != "CHANGES_REQUESTED"):
 
-            logger.warning("PR already rejected by GitHubFlow")
+            logger.warning("PR already approved by GitHubFlow")
             return False
 
     else:
