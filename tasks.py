@@ -1,7 +1,6 @@
 # coding=utf-8
 import logging
 import re
-import time
 
 from celery import Celery
 from agithub.GitHub import GitHub
@@ -31,31 +30,18 @@ def assert_valid_body(pull_request):
         raise ValidationError("Missing description")
 
 
+def assert_valid_tag(pull_request):
+    repo = get_pr_repo(pull_request)
+    status, response = repo.releases.tags[pull_request["title"]].get()
+    if status == 200:
+        raise ValidationError("Tag exists")
+
+
 def get_pr_repo(pull_request):
     """ Create an agithub repo partial from a pull_request event """
     base = pull_request["base"]["repo"]
     owner = base["owner"]["login"]
     return github.repos[owner][base["name"]]
-
-
-def get_pr_merge_commit(pull_request):
-    logger.info("Retrieving merge commit for PR #%s", pull_request["number"])
-
-    for retry in range(config.PR_MERGE_COMMIT_RETRIES):
-        repo = get_pr_repo(pull_request)
-        status, response = repo.pulls[pull_request["number"]].get()
-
-        commit = response.get("merge_commit_sha")
-        if commit:
-            logger.info("Fetched merge commit: %s", commit)
-            return commit
-
-        else:
-            logger.debug("Waiting before retrying.")
-            time.sleep(config.PR_MERGE_COMMIT_DELAY)
-
-    else:
-        raise Exception("Retrieving merge commit failed")
 
 
 def create_or_fail(partial, request):
@@ -67,8 +53,11 @@ def create_or_fail(partial, request):
                 request, response, status))
 
 
-def set_commit_status(repo, commit, status, description):
+def set_pr_status(pull_request, status, description):
+    commit = pull_request["head"]["sha"]
     logger.info("Settings status of %s to %s", commit, status)
+
+    repo = get_pr_repo(pull_request)
     create_or_fail(
         repo.statuses[commit],
         {
@@ -82,38 +71,46 @@ def set_commit_status(repo, commit, status, description):
 @app.task()
 def check_pull_request(pull_request):
     logger.info("Init status checks for PR #%s", pull_request["number"])
-    repo = get_pr_repo(pull_request)
-
-    # Not always avaiable immediately after a PR is opened
-    commit = pull_request.get("merge_commit_sha")
-    if not commit:
-        logger.warning("No Merge commit in event")
-        commit = get_pr_merge_commit(pull_request)
-
-    # logger.debug("Settings status to pending")
-    # set_commit_status(repo, commit, "pending", "Parsing pull request")
+    set_pr_status(pull_request, "pending", "Validating release")
 
     try:
         assert_valid_title(pull_request)
         assert_valid_body(pull_request)
+        assert_valid_tag(pull_request)
 
     except ValidationError as e:
-        logger.exception("Validation failed")
-        set_commit_status(repo, commit, "failure", e.message)
+        logger.exception("Validation failed: %s", e)
+        fail_pr.delay(pull_request, str(e))
 
     except Exception:
         logger.exception("Validation error")
-        set_commit_status(repo, commit, "error", "Validation error")
+        set_pr_status(pull_request, "error", "Validation error")
 
     else:
         logger.info("All status checks passed")
-        set_commit_status(repo, commit, "success", "Valid release")
-        review_pr.delay(pull_request)
+        approve_pr.delay(pull_request)
 
 
 @app.task()
-def review_pr(pull_request):
+def fail_pr(pull_request, reason):
+    logger.info("Failing PR #%s", pull_request["number"])
+    set_pr_status(pull_request, "failure", reason)
+
+    repo = get_pr_repo(pull_request)
+    pr_obj = repo.pulls[pull_request["number"]]
+    create_or_fail(
+        pr_obj.reviews,
+        {
+            "body": reason,
+            "event": "REQUEST_CHANGES"
+        }
+    )
+
+
+@app.task()
+def approve_pr(pull_request):
     logger.info("Approving PR #%s", pull_request["number"])
+    set_pr_status(pull_request, "success", "Valid release")
 
     repo = get_pr_repo(pull_request)
     pr_obj = repo.pulls[pull_request["number"]]
@@ -123,11 +120,14 @@ def review_pr(pull_request):
 
     logger.debug("Fetched %s reviews")
     for review in response:
-        if review["user"]["id"] == current_user_id:
-            logger.warning("PR already reviews by GitHubFlow")
+        if (review["user"]["id"] == current_user_id and
+                review["state"] != "CHANGES_REQUESTED"):
+
+            logger.warning("PR already rejected by GitHubFlow")
             return False
 
     else:
+        logger.info("Updating PR status")
         repo = get_pr_repo(pull_request)
         pr_obj = repo.pulls[pull_request["number"]]
         create_or_fail(
