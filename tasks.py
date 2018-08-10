@@ -69,7 +69,7 @@ def set_pr_status(pull_request, status, description):
 
 
 @app.task()
-def check_pull_request(pull_request):
+def check_release_pr(pull_request):
     logger.info("Init status checks for PR #%s", pull_request["number"])
     set_pr_status(pull_request, "pending", "Validating release")
 
@@ -89,6 +89,12 @@ def check_pull_request(pull_request):
     else:
         logger.info("All status checks passed")
         approve_pr.delay(pull_request)
+
+
+@app.task()
+def check_pull_request(pull_request):
+    logger.info("Init dev checks for PR #%s", pull_request["number"])
+    suggest_release_note.delay(pull_request)
 
 
 @app.task()
@@ -136,6 +142,30 @@ def approve_pr(pull_request):
             {
                 "body": "Valid release",
                 "event": "APPROVE" if config.APPROVE_RELEASES else "COMMENT"
+            }
+        )
+
+
+@app.task()
+def suggest_release_note(pull_request):
+    logger.info("Suggesting release note in PR #%s", pull_request["number"])
+
+    repo = get_pr_repo(pull_request)
+    pr_obj = repo.pulls[pull_request["number"]]
+    status, response = pr_obj.reviews.get()
+    title = pull_request["title"]
+    match = re.match(config.JiraConfig.TITLE_PATTERN, title)
+    if match and config.JiraConfig.BROWSE_URL:
+        note = "- {description} [[{issue}]({url}{issue})]".format(
+            url=config.JiraConfig.BROWSE_URL,
+            **match.groupdict()
+        )
+        create_or_fail(
+            pr_obj.reviews,
+            {
+                "body": ("Suggested release note:\n"
+                         "{note}\n```\n{note}\n```".format(note=note)),
+                "event": "COMMENT",
             }
         )
 

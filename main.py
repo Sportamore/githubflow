@@ -6,7 +6,7 @@ import hmac
 from flask import Flask, request, abort
 
 import config
-from tasks import release_from_pr, check_pull_request
+from tasks import release_from_pr, check_release_pr, check_pull_request
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -29,24 +29,26 @@ def pr_event(payload):
     logger.debug("New event for PR #%s: %s",
                  pull_request["number"], payload["action"])
 
-    if pull_request["base"]["ref"] != config.TARGET_BRANCH:
-        logger.warning("Unmonitored branch: %s", pull_request["base"]["ref"])
-        return False
+    if pull_request["base"]["ref"] == config.TARGET_BRANCH:
+        if payload["action"] in ("opened", "reopened", "edited", "synchronize"):
+            logger.info("PR created/updated, dispatching status check")
+            check_release_pr.delay(pull_request)
 
-    if payload["action"] in ("opened", "reopened", "edited", "synchronize"):
-        logger.info("PR created/updated, dispatching status check")
-        check_pull_request.delay(pull_request)
+        elif payload["action"] == "closed":
+            if pull_request["merged"]:
+                logger.info("PR merged, creating release")
+                release_from_pr.delay(pull_request)
 
-    elif payload["action"] == "closed":
-        if pull_request["merged"]:
-            logger.info("PR merged, creating release")
-            release_from_pr.delay(pull_request)
+            else:
+                logger.warning("PR closed")
 
         else:
-            logger.warning("PR closed")
+            logger.info("Unhandled PR action: %s", payload["action"])
+    elif pull_request["base"]["ref"] == config.DEVELOPMENT_BRANCH:
+        check_pull_request.delay(pull_request)
 
-    else:
-        logger.info("Unhandled PR action: %s", payload["action"])
+    logger.warning("Unmonitored branch: %s", pull_request["base"]["ref"])
+    return False
 
 
 @app.route('/', methods=['POST'])
