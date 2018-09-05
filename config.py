@@ -29,7 +29,7 @@ class JiraConfig(object):
 
 
 # Application
-TARGET_BRANCH = "master"
+STABLE_BRANCH = "master"
 DEVELOPMENT_BRANCH = "dev"
 RELEASE_PATTERN = r"^\d{8}\.\d+$"
 APPROVE_RELEASES = bool(env.get("APPROVE_RELEASES", False))

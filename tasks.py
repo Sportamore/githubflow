@@ -20,23 +20,6 @@ class ValidationError(Exception):
     pass
 
 
-def assert_valid_title(pull_request):
-    if not re.match(config.RELEASE_PATTERN, pull_request["title"]):
-        raise ValidationError("Invalid release title")
-
-
-def assert_valid_body(pull_request):
-    if not len(pull_request["body"]):
-        raise ValidationError("Missing description")
-
-
-def assert_valid_tag(pull_request):
-    repo = get_pr_repo(pull_request)
-    status, response = repo.releases.tags[pull_request["title"]].get()
-    if status == 200:
-        raise ValidationError("Tag exists")
-
-
 def get_pr_repo(pull_request):
     """ Create an agithub repo partial from a pull_request event """
     base = pull_request["base"]["repo"]
@@ -69,8 +52,17 @@ def set_pr_status(pull_request, status, description):
 
 
 @app.task()
+def pull_request_modified(pull_request):
+    logger.info("Init checks for PR #%s", pull_request["number"])
+
+    if pull_request["base"]["ref"] == config.STABLE_BRANCH:
+        check_release_pr(pull_request)
+
+    else:
+        logger.info("Unmonitored branch: %s", pull_request["base"]["ref"])
+
+
 def check_release_pr(pull_request):
-    logger.info("Init status checks for PR #%s", pull_request["number"])
     set_pr_status(pull_request, "pending", "Validating release")
 
     try:
@@ -80,7 +72,7 @@ def check_release_pr(pull_request):
 
     except ValidationError as e:
         logger.exception("Validation failed: %s", e)
-        fail_pr.delay(pull_request, str(e))
+        fail_pr(pull_request, str(e))
 
     except Exception:
         logger.exception("Validation error")
@@ -88,16 +80,26 @@ def check_release_pr(pull_request):
 
     else:
         logger.info("All status checks passed")
-        approve_pr.delay(pull_request)
+        approve_pr(pull_request)
 
 
-@app.task()
-def check_pull_request(pull_request):
-    logger.info("Init dev checks for PR #%s", pull_request["number"])
-    suggest_release_note.delay(pull_request)
+def assert_valid_title(pull_request):
+    if not re.match(config.RELEASE_PATTERN, pull_request["title"]):
+        raise ValidationError("Invalid release title")
 
 
-@app.task()
+def assert_valid_body(pull_request):
+    if not len(pull_request["body"]):
+        raise ValidationError("Missing description")
+
+
+def assert_valid_tag(pull_request):
+    repo = get_pr_repo(pull_request)
+    status, response = repo.releases.tags[pull_request["title"]].get()
+    if status == 200:
+        raise ValidationError("Tag exists")
+
+
 def fail_pr(pull_request, reason):
     logger.info("Failing PR #%s", pull_request["number"])
     set_pr_status(pull_request, "failure", reason)
@@ -114,7 +116,6 @@ def fail_pr(pull_request, reason):
     )
 
 
-@app.task()
 def approve_pr(pull_request):
     logger.info("Approving PR #%s", pull_request["number"])
     set_pr_status(pull_request, "success", "Valid release")
@@ -147,6 +148,38 @@ def approve_pr(pull_request):
 
 
 @app.task()
+def pull_request_merged(pull_request):
+    logger.info("Init final action for PR #%s", pull_request["number"])
+
+    base_ref = pull_request["base"]["ref"]
+    if base_ref == config.STABLE_BRANCH:
+        create_release(pull_request)
+
+    elif base_ref == config.DEVELOPMENT_BRANCH:
+        suggest_release_note(pull_request)
+
+    else:
+        logger.info("Unmonitored branch: %s", base_ref)
+
+
+def create_release(pull_request):
+    logger.info("Creating release from PR #%s", pull_request["number"])
+
+    # TODO: Add more last-minute validation (or check statuses?)
+    assert_valid_title(pull_request)
+
+    repo = get_pr_repo(pull_request)
+    create_or_fail(
+        repo.releases,
+        {
+            "tag_name": pull_request["title"],
+            "target_commitish": pull_request["merge_commit_sha"],
+            "name": pull_request["title"],
+            "body": pull_request["body"]
+        }
+    )
+
+
 def suggest_release_note(pull_request):
     logger.info("Suggesting release note in PR #%s", pull_request["number"])
 
@@ -169,21 +202,3 @@ def suggest_release_note(pull_request):
             }
         )
 
-
-@app.task()
-def release_from_pr(pull_request):
-    logger.info("Creating release from PR #%s", pull_request["number"])
-
-    # TODO: Add more last-minute validation (or check statuses?)
-    assert_valid_title(pull_request)
-
-    repo = get_pr_repo(pull_request)
-    create_or_fail(
-        repo.releases,
-        {
-            "tag_name": pull_request["title"],
-            "target_commitish": pull_request["merge_commit_sha"],
-            "name": pull_request["title"],
-            "body": pull_request["body"]
-        }
-    )

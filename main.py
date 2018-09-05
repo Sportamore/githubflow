@@ -6,7 +6,7 @@ import hmac
 from flask import Flask, request, abort
 
 import config
-from tasks import release_from_pr, check_release_pr, check_pull_request
+from tasks import pull_request_modified, pull_request_merged
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -26,29 +26,23 @@ def validate_signature():
 
 def pr_event(payload):
     pull_request = payload["pull_request"]
-    logger.debug("New event for PR #%s: %s",
+    logger.info("New event for PR #%s: %s",
                  pull_request["number"], payload["action"])
 
-    if pull_request["base"]["ref"] == config.TARGET_BRANCH:
-        if payload["action"] in ("opened", "reopened", "edited", "synchronize"):
-            logger.info("PR created/updated, dispatching status check")
-            check_release_pr.delay(pull_request)
+    if payload["action"] in ("opened", "reopened", "edited", "synchronize"):
+        logger.debug("PR created/updated, dispatching status check")
+        pull_request_modified.delay(pull_request)
 
-        elif payload["action"] == "closed":
-            if pull_request["merged"]:
-                logger.info("PR merged, creating release")
-                release_from_pr.delay(pull_request)
-
-            else:
-                logger.warning("PR closed")
+    elif payload["action"] == "closed":
+        if pull_request["merged"]:
+            logger.debug("PR merged, dispatching final action")
+            pull_request_merged.delay(pull_request)
 
         else:
-            logger.info("Unhandled PR action: %s", payload["action"])
-    elif pull_request["base"]["ref"] == config.DEVELOPMENT_BRANCH:
-        check_pull_request.delay(pull_request)
+            logger.warning("PR closed")
 
-    logger.warning("Unmonitored branch: %s", pull_request["base"]["ref"])
-    return False
+    else:
+        logger.info("Unhandled PR action: %s", payload["action"])
 
 
 @app.route('/', methods=['POST'])
@@ -74,7 +68,7 @@ def handle_webhook():
         pr_event(payload)
 
     else:
-        logger.warning("Unhandled event: %s(%s)", event, payload.get("action"))
+        logger.info("Unhandled event: %s(%s)", event, payload.get("action"))
 
     return ""
 
