@@ -18,8 +18,19 @@ class CeleryConfig(object):
     CELERY_RESULT_SERIALIZER = "json"
 
 
+class JiraConfig(object):
+    DEBUG = False
+
+    TITLE_PATTERN = (r'^'
+                     r'(?P<issue>[A-Z]{2,10}-[0-9]{1,10})'
+                     r':\s*'
+                     r'(?P<description>[\w\s]+)')
+    BROWSE_URL = env.get("JIRA_BROWSE_URL", None)
+
+
 # Application
 TARGET_BRANCH = "master"
+DEVELOPMENT_BRANCH = "dev"
 RELEASE_PATTERN = r"^\d{8}\.\d+$"
 APPROVE_RELEASES = bool(env.get("APPROVE_RELEASES", False))
 
