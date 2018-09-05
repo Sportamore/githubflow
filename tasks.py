@@ -1,6 +1,7 @@
 # coding=utf-8
 import logging
 import re
+from datetime import date
 
 from celery import Celery
 from agithub.GitHub import GitHub
@@ -84,8 +85,13 @@ def check_release_pr(pull_request):
 
 
 def assert_valid_title(pull_request):
-    if not re.match(config.RELEASE_PATTERN, pull_request["title"]):
+    pr_title = pull_request["title"]
+    if not re.match(config.RELEASE_PATTERN, pr_title):
         raise ValidationError("Invalid release title")
+
+    elif not config.SEMANTIC_VERSIONING:
+        if pr_title[:10] != date.today().strftime('%Y%m%d'):
+            raise ValidationError("Release date not current")
 
 
 def assert_valid_body(pull_request):
@@ -166,7 +172,7 @@ def create_release(pull_request):
     logger.info("Creating release from PR #%s", pull_request["number"])
 
     # TODO: Add more last-minute validation (or check statuses?)
-    assert_valid_title(pull_request)
+    assert_valid_tag(pull_request)
 
     repo = get_pr_repo(pull_request)
     create_or_fail(
