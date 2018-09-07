@@ -52,6 +52,19 @@ def set_pr_status(pull_request, status, description):
     )
 
 
+def review_pr(pull_request, action, comment):
+    logger.info("Reviewing %s, %s", pull_request["number"], action)
+    repo = get_pr_repo(pull_request)
+    pr_obj = repo.pulls[pull_request["number"]]
+    create_or_fail(
+        pr_obj.reviews,
+        {
+            "body": comment,
+            "event": action
+        }
+    )
+
+
 @app.task()
 def pull_request_modified(pull_request):
     logger.info("Init checks for PR #%s", pull_request["number"])
@@ -109,17 +122,9 @@ def assert_valid_tag(pull_request):
 def fail_pr(pull_request, reason):
     logger.info("Failing PR #%s", pull_request["number"])
     set_pr_status(pull_request, "failure", reason)
-
-    repo = get_pr_repo(pull_request)
-    pr_obj = repo.pulls[pull_request["number"]]
-    create_or_fail(
-        pr_obj.reviews,
-        {
-            "body": reason,
-            "event": ("REQUEST_CHANGES" if config.APPROVE_RELEASES
-                      else "COMMENT")
-        }
-    )
+    review_pr(pull_request,
+              ("REQUEST_CHANGES" if config.APPROVE_RELEASES else "COMMENT"),
+              reason)
 
 
 def approve_pr(pull_request):
@@ -141,16 +146,9 @@ def approve_pr(pull_request):
             return False
 
     else:
-        logger.info("Updating PR status")
-        repo = get_pr_repo(pull_request)
-        pr_obj = repo.pulls[pull_request["number"]]
-        create_or_fail(
-            pr_obj.reviews,
-            {
-                "body": "Valid release",
-                "event": "APPROVE" if config.APPROVE_RELEASES else "COMMENT"
-            }
-        )
+        review_pr(pull_request,
+                  "APPROVE" if config.APPROVE_RELEASES else "COMMENT",
+                  "Valid release")
 
 
 @app.task()
@@ -189,22 +187,17 @@ def create_release(pull_request):
 def suggest_release_note(pull_request):
     logger.info("Suggesting release note in PR #%s", pull_request["number"])
 
-    repo = get_pr_repo(pull_request)
-    pr_obj = repo.pulls[pull_request["number"]]
-    status, response = pr_obj.reviews.get()
     title = pull_request["title"]
     match = re.match(config.JiraConfig.TITLE_PATTERN, title)
+
     if match and config.JiraConfig.BROWSE_URL:
         note = "- {description} [[{issue}]({url}{issue})]".format(
             url=config.JiraConfig.BROWSE_URL,
             **match.groupdict()
         )
-        create_or_fail(
-            pr_obj.reviews,
-            {
-                "body": ("Suggested release note:\n"
-                         "{note}\n```\n{note}\n```".format(note=note)),
-                "event": "COMMENT",
-            }
-        )
+        review_pr(pull_request, "COMMENT",
+                  ("Suggested release note:\n"
+                   "{note}\n```\n{note}\n```".format(note=note)))
 
+    else:
+        logger.warning("No issue tag detected")
