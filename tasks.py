@@ -103,7 +103,7 @@ def assert_valid_title(pull_request):
         raise ValidationError("Invalid release title")
 
     elif not config.SEMANTIC_VERSIONING:
-        if pr_title[:10] != date.today().strftime('%Y%m%d'):
+        if pr_title[:8] != date.today().strftime('%Y%m%d'):
             raise ValidationError("Release date not current")
 
 
