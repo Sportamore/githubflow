@@ -23,8 +23,8 @@ class JiraConfig(object):
 
     TITLE_PATTERN = (r'^'
                      r'(?P<issue>[A-Z]{2,10}-[0-9]{1,10})'
-                     r':\s*'
-                     r'(?P<description>[\w\s]+)')
+                     r'[:\s]+'
+                     r'(?P<description>[\w\s"\'.()\[\]_-]+$)')
     BROWSE_URL = env.get("JIRA_BROWSE_URL", None)
 
 
