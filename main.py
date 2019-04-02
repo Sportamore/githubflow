@@ -2,6 +2,7 @@
 # coding=utf-8
 import logging
 import hmac
+from concurrent.futures import ThreadPoolExecutor
 
 from flask import Flask, request, abort
 
@@ -13,6 +14,8 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 app.config.from_object(config.FlaskConfig)
+
+thread = ThreadPoolExecutor(1)
 
 
 def validate_signature():
@@ -31,12 +34,12 @@ def pr_event(payload):
 
     if payload["action"] in ("opened", "reopened", "edited", "synchronize"):
         logger.debug("PR created/updated, dispatching status check")
-        pull_request_modified.delay(pull_request)
+        thread.submit(pull_request_modified, pull_request)
 
     elif payload["action"] == "closed":
         if pull_request["merged"]:
             logger.debug("PR merged, dispatching final action")
-            pull_request_merged.delay(pull_request)
+            thread.submit(pull_request_merged, pull_request)
 
         else:
             logger.warning("PR closed")

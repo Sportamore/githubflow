@@ -3,16 +3,12 @@ import logging
 import re
 from datetime import date
 
-from celery import Celery
 from agithub.GitHub import GitHub
 
 import config
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
-
-app = Celery(__name__)
-app.config_from_object(config.CeleryConfig)
 
 github = GitHub(token=config.GITHUB_TOKEN)
 
@@ -65,7 +61,6 @@ def review_pr(pull_request, action, comment):
     )
 
 
-@app.task()
 def pull_request_modified(pull_request):
     logger.info("Init checks for PR #%s", pull_request["number"])
 
@@ -158,7 +153,6 @@ def approve_pr(pull_request):
                   "Valid release")
 
 
-@app.task()
 def pull_request_merged(pull_request):
     logger.info("Init final action for PR #%s", pull_request["number"])
 

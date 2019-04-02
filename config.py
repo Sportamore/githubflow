@@ -6,18 +6,6 @@ class FlaskConfig(object):
     DEBUG = False
 
 
-class CeleryConfig(object):
-    DEBUG = False
-
-    BROKER_URL = env.get("CELERY_BROKER") or "redis://redis"
-
-    CELERY_CREATE_MISSING_QUEUES = True
-
-    CELERY_TASK_SERIALIZER = "json"
-    CELERY_ACCEPT_CONTENT = ["json"]
-    CELERY_RESULT_SERIALIZER = "json"
-
-
 class JiraConfig(object):
     DEBUG = False
 
