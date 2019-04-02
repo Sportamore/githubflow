@@ -99,12 +99,19 @@ def check_release_pr(pull_request):
 
 def assert_valid_title(pull_request):
     pr_title = pull_request["title"]
-    if not re.match(config.RELEASE_PATTERN, pr_title):
-        raise ValidationError("Invalid release title")
 
-    elif not config.SEMANTIC_VERSIONING:
+    if re.match(config.RELEASE_PATTERN_SEMVER, pr_title):
+        return True
+
+    elif re.match(config.RELEASE_PATTERN_DATE, pr_title):
         if pr_title[:8] != date.today().strftime('%Y%m%d'):
             raise ValidationError("Release date not current")
+
+        else:
+            return True
+
+    else:
+        raise ValidationError("Invalid release title")
 
 
 def assert_valid_body(pull_request):

@@ -34,10 +34,8 @@ DEVELOPMENT_BRANCH = "dev"
 
 # Releases
 APPROVE_RELEASES = bool(env.get("APPROVE_RELEASES", False))
-SEMANTIC_VERSIONING = bool(env.get("SEMANTIC_VERSIONING", False))
-RELEASE_PATTERN = (r"^\d+\.\d+\.\d+$"
-                   if SEMANTIC_VERSIONING else
-                   r"^\d{8}\.\d+$")
+RELEASE_PATTERN_SEMVER = r"^\d+\.\d+\.\d+$"
+RELEASE_PATTERN_DATE = r"^\d{8}\.\d+$"
 
 # Secrets
 WEBHOOK_SECRET = env.get("GITHUB_WEBHOOK_SECRET").encode('utf-8')
