@@ -5,17 +5,10 @@
 #    pip-compile --output-file requirements.txt requirements.in
 #
 agithub==2.1
-amqp==2.4.0               # via kombu
-billiard==3.5.0.5         # via celery
-celery[redis]==4.2.1
 click==7.0                # via flask
 flask==1.0.2
 itsdangerous==1.1.0       # via flask
 jinja2==2.10              # via flask
-kombu==4.2.2.post1
 markupsafe==1.1.0         # via jinja2
-pytz==2018.9              # via celery
-redis==3.0.1              # via celery
 uwsgi==2.0.17
-vine==1.2.0               # via amqp
 werkzeug==0.14.1          # via flask
