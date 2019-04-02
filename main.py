@@ -9,7 +9,7 @@ from flask import Flask, request, abort
 import config
 from tasks import pull_request_modified, pull_request_merged
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=config.LOG_LEVEL)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
@@ -29,16 +29,16 @@ def validate_signature():
 
 def pr_event(payload):
     pull_request = payload["pull_request"]
-    logger.info("New event for PR #%s: %s",
+    logger.debug("New event for PR #%s: %s",
                  pull_request["number"], payload["action"])
 
     if payload["action"] in ("opened", "reopened", "edited", "synchronize"):
-        logger.debug("PR created/updated, dispatching status check")
+        logger.info("PR created/updated, dispatching status check")
         thread.submit(pull_request_modified, pull_request)
 
     elif payload["action"] == "closed":
         if pull_request["merged"]:
-            logger.debug("PR merged, dispatching final action")
+            logger.info("PR merged, dispatching final action")
             thread.submit(pull_request_merged, pull_request)
 
         else:

@@ -17,6 +17,9 @@ class JiraConfig(object):
 
 
 # Application
+LOG_LEVEL = env.get("LOG_LEVEL", "INFO").upper()
+
+# Repo defaults
 STABLE_BRANCH = "master"
 DEVELOPMENT_BRANCH = "dev"
 

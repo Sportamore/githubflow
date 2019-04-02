@@ -7,7 +7,6 @@ from agithub.GitHub import GitHub
 
 import config
 
-logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 github = GitHub(token=config.GITHUB_TOKEN)
