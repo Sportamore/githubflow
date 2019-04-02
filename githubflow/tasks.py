@@ -5,11 +5,11 @@ from datetime import date
 
 from agithub.GitHub import GitHub
 
-import config
+from . import settings
 
 logger = logging.getLogger(__name__)
 
-github = GitHub(token=config.GITHUB_TOKEN)
+github = GitHub(token=settings.GITHUB_TOKEN)
 
 
 class ValidationError(Exception):
@@ -60,10 +60,10 @@ def review_pr(pull_request, action, comment):
     )
 
 
-def pull_request_modified(pull_request):
+def handle_pr_modified(pull_request):
     logger.info("Init checks for PR #%s", pull_request["number"])
 
-    if pull_request["base"]["ref"] == config.STABLE_BRANCH:
+    if pull_request["base"]["ref"] == settings.STABLE_BRANCH:
         check_release_pr(pull_request)
 
     else:
@@ -94,10 +94,10 @@ def check_release_pr(pull_request):
 def assert_valid_title(pull_request):
     pr_title = pull_request["title"]
 
-    if re.match(config.RELEASE_PATTERN_SEMVER, pr_title):
+    if re.match(settings.RELEASE_PATTERN_SEMVER, pr_title):
         return True
 
-    elif re.match(config.RELEASE_PATTERN_DATE, pr_title):
+    elif re.match(settings.RELEASE_PATTERN_DATE, pr_title):
         if pr_title[:8] != date.today().strftime('%Y%m%d'):
             raise ValidationError("Release date not current")
 
@@ -124,7 +124,7 @@ def fail_pr(pull_request, reason):
     logger.info("Failing PR #%s", pull_request["number"])
     set_pr_status(pull_request, "failure", reason)
     review_pr(pull_request,
-              ("REQUEST_CHANGES" if config.APPROVE_RELEASES else "COMMENT"),
+              ("REQUEST_CHANGES" if settings.APPROVE_RELEASES else "COMMENT"),
               reason)
 
 
@@ -148,18 +148,18 @@ def approve_pr(pull_request):
 
     else:
         review_pr(pull_request,
-                  "APPROVE" if config.APPROVE_RELEASES else "COMMENT",
+                  "APPROVE" if settings.APPROVE_RELEASES else "COMMENT",
                   "Valid release")
 
 
-def pull_request_merged(pull_request):
+def handle_pr_merged(pull_request):
     logger.info("Init final action for PR #%s", pull_request["number"])
 
     base_ref = pull_request["base"]["ref"]
-    if base_ref == config.STABLE_BRANCH:
+    if base_ref == settings.STABLE_BRANCH:
         create_release(pull_request)
 
-    elif base_ref == config.DEVELOPMENT_BRANCH:
+    elif base_ref == settings.DEVELOPMENT_BRANCH:
         suggest_release_note(pull_request)
 
     else:
@@ -188,11 +188,11 @@ def suggest_release_note(pull_request):
     logger.info("Suggesting release note in PR #%s", pull_request["number"])
 
     title = pull_request["title"]
-    match = re.match(config.JiraConfig.TITLE_PATTERN, title)
+    match = re.match(settings.JiraConfig.TITLE_PATTERN, title)
 
-    if match and config.JiraConfig.BROWSE_URL:
+    if match and settings.JiraConfig.BROWSE_URL:
         note = "- {description} [[{issue}]({url}{issue})]".format(
-            url=config.JiraConfig.BROWSE_URL,
+            url=settings.JiraConfig.BROWSE_URL,
             **match.groupdict()
         )
         review_pr(pull_request, "COMMENT",

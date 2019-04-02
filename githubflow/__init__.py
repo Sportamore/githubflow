@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 # coding=utf-8
 import logging
-import hmac
 from concurrent.futures import ThreadPoolExecutor
 
 from flask import Flask, request, abort
 
-from . import settings
-from .tasks import pull_request_modified, pull_request_merged
+from . import settings, tasks
+from .utils import validate_signature
 
 logging.basicConfig(level=settings.LOG_LEVEL)
 logger = logging.getLogger(__name__)
@@ -18,15 +17,6 @@ app.config.from_object(settings.FlaskConfig)
 thread = ThreadPoolExecutor(1)
 
 
-def validate_signature():
-    logger.debug("Validating request digest")
-
-    mode, digest = request.headers["X-Hub-Signature"].split('=')
-    real_hmac = hmac.new(settings.WEBHOOK_SECRET, request.data, mode)
-    if not hmac.compare_digest(digest, real_hmac.hexdigest()):
-        raise ValueError("Invalid HMAC")
-
-
 def pr_event(payload):
     pull_request = payload["pull_request"]
     logger.debug("New event for PR #%s: %s",
@@ -34,12 +24,12 @@ def pr_event(payload):
 
     if payload["action"] in ("opened", "reopened", "edited", "synchronize"):
         logger.info("PR created/updated, dispatching status check")
-        thread.submit(pull_request_modified, pull_request)
+        thread.submit(tasks.handle_pr_modified, pull_request)
 
     elif payload["action"] == "closed":
         if pull_request["merged"]:
             logger.info("PR merged, dispatching final action")
-            thread.submit(pull_request_merged, pull_request)
+            thread.submit(tasks.handle_pr_merged, pull_request)
 
         else:
             logger.warning("PR closed")
