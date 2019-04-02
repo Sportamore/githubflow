@@ -2,8 +2,8 @@
 from unittest import TestCase
 
 try:
-    from mock import MagicMock
+    from mock import MagicMock, patch
 except ImportError:
-    from unittest.mock import MagicMock
+    from unittest.mock import MagicMock, patch
 
-__all__ = ['TestCase', 'MagicMock']
+__all__ = ['TestCase', 'MagicMock', "patch"]
