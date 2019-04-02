@@ -6,14 +6,14 @@ from concurrent.futures import ThreadPoolExecutor
 
 from flask import Flask, request, abort
 
-import config
-from tasks import pull_request_modified, pull_request_merged
+from . import settings
+from .tasks import pull_request_modified, pull_request_merged
 
-logging.basicConfig(level=config.LOG_LEVEL)
+logging.basicConfig(level=settings.LOG_LEVEL)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-app.config.from_object(config.FlaskConfig)
+app.config.from_object(settings.FlaskConfig)
 
 thread = ThreadPoolExecutor(1)
 
@@ -22,7 +22,7 @@ def validate_signature():
     logger.debug("Validating request digest")
 
     mode, digest = request.headers["X-Hub-Signature"].split('=')
-    real_hmac = hmac.new(config.WEBHOOK_SECRET, request.data, mode)
+    real_hmac = hmac.new(settings.WEBHOOK_SECRET, request.data, mode)
     if not hmac.compare_digest(digest, real_hmac.hexdigest()):
         raise ValueError("Invalid HMAC")
 
@@ -50,6 +50,9 @@ def pr_event(payload):
 
 @app.route('/', methods=['POST'])
 def handle_webhook():
+    if not settings.IS_CONFIGURED:
+        abort(500)
+
     try:
         validate_signature()
 

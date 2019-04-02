@@ -29,5 +29,8 @@ RELEASE_PATTERN_SEMVER = r"^\d+\.\d+\.\d+$"
 RELEASE_PATTERN_DATE = r"^\d{8}\.\d+$"
 
 # Secrets
-WEBHOOK_SECRET = env.get("GITHUB_WEBHOOK_SECRET").encode('utf-8')
-GITHUB_TOKEN = env.get("GITHUB_TOKEN")
+WEBHOOK_SECRET = env.get("GITHUB_WEBHOOK_SECRET", "").encode('utf-8')
+GITHUB_TOKEN = env.get("GITHUB_TOKEN", "")
+
+# Pre-flight
+IS_CONFIGURED = (WEBHOOK_SECRET and GITHUB_TOKEN)
