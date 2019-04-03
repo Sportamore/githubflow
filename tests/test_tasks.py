@@ -1,19 +1,7 @@
 # -*- coding: utf-8 -*-
 from githubflow import tasks, settings
 
-from . import TestCase, patch
-
-
-def make_pull_request(ref="some-ref"):
-    return {
-        "number": 1,
-        "title": "",
-        "body": "",
-        "base": {
-            "ref": ref,
-        },
-        "merge_commit_sha": "aabbcc",
-    }
+from . import TestCase, patch, make_pull_request
 
 
 class TestHandlers(TestCase):
