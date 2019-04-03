@@ -54,12 +54,17 @@ class TestValidators(TestCase):
             tasks.check_release_pr(pull_request)
             mock_fail.assert_called()
 
-        pull_request["title"] = "1.2.3"
+        pull_request["body"] = "some-body"
         with patch("githubflow.tasks.fail_pr") as mock_fail:
             tasks.check_release_pr(pull_request)
             mock_fail.assert_called()
 
-        pull_request["body"] = "some-body"
+        pull_request["title"] = "1.2.3"
+        with patch("githubflow.tasks.approve_pr") as mock_approve:
+            tasks.check_release_pr(pull_request)
+            mock_approve.assert_called()
+
+        pull_request["title"] = "20190403.1"
         with patch("githubflow.tasks.approve_pr") as mock_approve:
             tasks.check_release_pr(pull_request)
             mock_approve.assert_called()
