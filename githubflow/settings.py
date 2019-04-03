@@ -9,7 +9,7 @@ class FlaskConfig(object):
 class JiraConfig(object):
     DEBUG = False
 
-    TITLE_PATTERN = (r'^'
+    TITLE_PATTERN = (r'^\s*'
                      r'(?P<issue>[A-Z]{2,10}-[0-9]{1,10})'
                      r'[:\s]+'
                      r'(?P<description>[\w\s"\'.()\[\]_-]+$)')
