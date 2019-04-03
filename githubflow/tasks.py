@@ -153,7 +153,7 @@ def approve_pr(pull_request):
 
 
 def handle_pr_merged(pull_request):
-    logger.info("Init final action for PR #%s", pull_request["number"])
+    logger.info("Init merge actions for PR #%s", pull_request["number"])
 
     base_ref = pull_request["base"]["ref"]
     if base_ref == settings.STABLE_BRANCH:

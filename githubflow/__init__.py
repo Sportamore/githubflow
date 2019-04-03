@@ -5,7 +5,8 @@ from concurrent.futures import ThreadPoolExecutor
 
 from flask import Flask, request, abort
 
-from . import settings, tasks
+from . import settings
+from .tasks import handle_pr_modified, handle_pr_merged
 from .utils import validate_signature
 
 logging.basicConfig(level=settings.LOG_LEVEL)
@@ -24,15 +25,15 @@ def pr_event(payload):
 
     if payload["action"] in ("opened", "reopened", "edited", "synchronize"):
         logger.info("PR created/updated, dispatching status check")
-        thread.submit(tasks.handle_pr_modified, pull_request)
+        thread.submit(handle_pr_modified, pull_request)
 
     elif payload["action"] == "closed":
         if pull_request["merged"]:
             logger.info("PR merged, dispatching final action")
-            thread.submit(tasks.handle_pr_merged, pull_request)
+            thread.submit(handle_pr_merged, pull_request)
 
         else:
-            logger.warning("PR closed")
+            logger.info("PR closed, no action taken")
 
     else:
         logger.info("Unhandled PR action: %s", payload["action"])
@@ -53,7 +54,10 @@ def handle_webhook():
     try:
         delivery = request.headers["X-GitHub-Delivery"]
         event = request.headers["X-GitHub-Event"]
+
         payload = request.get_json()
+        if not payload:
+            raise ValueError("Empty payload")
 
     except Exception:
         logger.exception("Invalid request")
