@@ -1,0 +1,17 @@
+version: 2
+
+jobs:
+  build:
+    docker:
+      - image: circleci/python:3.6-stretch
+
+    steps:
+      - checkout
+
+      - run:
+          name: Setup venv
+          command: |
+            virtualenv ./venv
+            venv/bin/pip install -r ./requirements.txt -e .[test]
+
+      - run: venv/bin/pytest --cov githubflow/ -v .
