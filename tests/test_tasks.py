@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+from datetime import date
 from githubflow import tasks, settings
 
 from . import TestCase, patch, make_pull_request
@@ -52,7 +53,12 @@ class TestValidators(TestCase):
             tasks.check_release_pr(pull_request)
             mock_approve.assert_called()
 
-        pull_request["title"] = "20190403.1"
+        pull_request["title"] = "20010101.1"
+        with patch("githubflow.tasks.fail_pr") as mock_fail:
+            tasks.check_release_pr(pull_request)
+            mock_fail.assert_called()
+
+        pull_request["title"] = "{}.1".format(date.today().strftime('%Y%m%d'))
         with patch("githubflow.tasks.approve_pr") as mock_approve:
             tasks.check_release_pr(pull_request)
             mock_approve.assert_called()
