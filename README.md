@@ -1,4 +1,6 @@
 # GitHubFlow
+[![CircleCI](https://circleci.com/gh/carlskeide/githubflow.svg?style=svg)](https://circleci.com/gh/carlskeide/githubflow) ![Docker Build Status](https://img.shields.io/docker/build/carlskeide/githubflow.svg?style=plastic)
+
 __Automated Git-Flow release handling__
 
 There are several great CLI and IDE tools for [GitFlow](https://datasift.github.io/gitflow/IntroducingGitFlow.html), but most of them cannot coexist with GitHub's branch protection active on the master branch.

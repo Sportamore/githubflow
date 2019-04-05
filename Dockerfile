@@ -16,3 +16,4 @@ COPY . /srv/app
 
 WORKDIR /srv/app
 USER app
+CMD ["uwsgi", "uwsgi.ini"]
