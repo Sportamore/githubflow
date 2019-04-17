@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='GithubFlow',
-    version='1.2.0',
+    version='1.2.1',
 
     description='Automated Git-Flow release handling',
     url='https://github.com/carlskeide/githubflow/',
